@@ -1,11 +1,15 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/stefanosbou/repokit/internal/config"
+	"github.com/stefanosbou/repokit/internal/registry"
 	"github.com/stefanosbou/repokit/internal/scanner"
 )
 
@@ -33,12 +37,21 @@ var scanCmd = &cobra.Command{
 			return err
 		}
 
-		var added []config.RepoEntry
+		reg := registry.New(globals.Cfg)
+		var added, skipped []config.RepoEntry
 		for _, p := range paths {
 			name := filepath.Base(p)
 			entry := config.RepoEntry{Path: p, Name: name}
 
-			added = append(added, entry)
+			if _, exists := reg.ByName(name); exists {
+				skipped = append(skipped, entry)
+				continue
+			}
+			if reg.Add(entry) {
+				added = append(added, entry)
+			} else {
+				skipped = append(skipped, entry)
+			}
 		}
 
 		if len(added) == 0 {
@@ -51,6 +64,17 @@ var scanCmd = &cobra.Command{
 		}
 		fmt.Println()
 
+		fmt.Printf("Add all %d repos? [y/N]: ", len(added))
+		r := bufio.NewReader(os.Stdin)
+		line, _ := r.ReadString('\n')
+		if !strings.HasPrefix(strings.ToLower(strings.TrimSpace(line)), "y") {
+			fmt.Println("Aborted.")
+			return nil
+		}
+		if err := config.Save(globals.ConfigPath, globals.Cfg); err != nil {
+			return err
+		}
+		fmt.Printf("\n✓ %d repos registered.\n", len(added))
 		return nil
 	},
 }
