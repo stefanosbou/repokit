@@ -1,51 +1,60 @@
-/*
-Copyright © 2026 NAME HERE <EMAIL ADDRESS>
-
-*/
 package cmd
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/spf13/cobra"
+	"github.com/stefanosbou/repokit/internal/config"
 )
 
+// Globals is populated from persistent flags before any RunE runs.
+type Globals struct {
+	ConfigPath string
 
-
-// rootCmd represents the base command when called without any subcommands
-var rootCmd = &cobra.Command{
-	Use:   "repokit",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+	Cfg *config.Config
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
+var globals = &Globals{}
+
+var rootCmd = &cobra.Command{
+	Use:           "repokit",
+	Short:         "Manage a fleet of local git repositories",
+	Long:          "repokit is a CLI for bulk-managing local git repos: registry, status dashboard, parallel pull/fetch, dead-branch reaper, and secret scanner.",
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.Load(globals.ConfigPath)
+		if err != nil {
+			return err
+		}
+		globals.Cfg = cfg
+		// First-run init: persist the default config so users have something to edit.
+		if globals.ConfigPath == "" {
+			path, _ := config.ConfigPath()
+			if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+				_ = config.Save(path, cfg)
+			}
+		}
+		return nil
+	},
+}
+
+// Execute is the entry point invoked by main.
 func Execute() {
-	err := rootCmd.Execute()
-	if err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := rootCmd.ExecuteContext(ctx); err != nil {
+		fmt.Fprintln(os.Stderr, "Error:", err)
 		os.Exit(1)
 	}
 }
 
 func init() {
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.repokit.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	pf := rootCmd.PersistentFlags()
+	pf.StringVar(&globals.ConfigPath, "config", "", "Override config file path")
 }
-
-
