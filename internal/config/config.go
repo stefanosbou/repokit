@@ -10,13 +10,25 @@ import (
 )
 
 type Config struct {
-	Version string      `yaml:"version"`
-	Repos   []RepoEntry `yaml:"repos"`
+	Version  string      `yaml:"version"`
+	Repos    []RepoEntry `yaml:"repos"`
+	Settings Settings    `yaml:"settings"`
 }
 
 type RepoEntry struct {
 	Path string `yaml:"path" json:"path"`
 	Name string `yaml:"name" json:"name"`
+}
+
+type Settings struct {
+	Parallel     int           `yaml:"parallel"`
+	PullStrategy string        `yaml:"pull_strategy"`
+	Clean        CleanSettings `yaml:"clean"`
+}
+
+type CleanSettings struct {
+	StaleAfterDays    int      `yaml:"stale_after_days"`
+	ProtectedBranches []string `yaml:"protected_branches"`
 }
 
 // Default returns a fully populated Config with the documented v1 defaults.

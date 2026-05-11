@@ -32,3 +32,17 @@ func (t *Table) Row(cells ...any) {
 
 // Flush flushes the tabwriter; call before writing further unaligned output.
 func (t *Table) Flush() error { return t.tw.Flush() }
+
+// RelTime renders "N{s,m,h,d} ago" for a duration in seconds.
+func RelTime(seconds int64) string {
+	if seconds < 60 {
+		return fmt.Sprintf("%ds ago", seconds)
+	}
+	if seconds < 3600 {
+		return fmt.Sprintf("%dm ago", seconds/60)
+	}
+	if seconds < 86400 {
+		return fmt.Sprintf("%dh ago", seconds/3600)
+	}
+	return fmt.Sprintf("%dd ago", seconds/86400)
+}

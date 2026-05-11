@@ -14,6 +14,8 @@ import (
 
 // Globals is populated from persistent flags before any RunE runs.
 type Globals struct {
+	Repo       string
+	Parallel   int
 	ConfigPath string
 
 	Cfg *config.Config
@@ -56,5 +58,7 @@ func Execute() {
 
 func init() {
 	pf := rootCmd.PersistentFlags()
+	pf.StringVar(&globals.Repo, "repo", "", "Target a single repo by name")
+	pf.IntVar(&globals.Parallel, "parallel", 0, "Max concurrent operations (0 = NumCPU)")
 	pf.StringVar(&globals.ConfigPath, "config", "", "Override config file path")
 }
