@@ -3,35 +3,69 @@ package output
 import (
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
-	"text/tabwriter"
 )
 
-// Table is a thin wrapper over text/tabwriter for aligned columnar output.
+var ansiRE = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+func visibleWidth(s string) int {
+	return len([]rune(ansiRE.ReplaceAllString(s, "")))
+}
+
+// Table buffers rows and writes them with ANSI-aware column alignment on Flush.
 type Table struct {
-	tw *tabwriter.Writer
+	w       io.Writer
+	rows    [][]string
+	widths  []int
+	padding int
 }
 
-// NewTable creates a Table with the given headers, written immediately.
+// NewTable creates a Table with the given headers.
 func NewTable(w io.Writer, headers []string) *Table {
-	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	t := &Table{w: w, padding: 2}
 	if len(headers) > 0 {
-		fmt.Fprintln(tw, strings.Join(headers, "\t"))
+		t.addRow(headers)
 	}
-	return &Table{tw: tw}
+	return t
 }
 
-// Row prints one row. Each cell is converted with fmt.Sprint.
+func (t *Table) addRow(cells []string) {
+	for len(t.widths) < len(cells) {
+		t.widths = append(t.widths, 0)
+	}
+	for i, c := range cells {
+		if w := visibleWidth(c); w > t.widths[i] {
+			t.widths[i] = w
+		}
+	}
+	t.rows = append(t.rows, cells)
+}
+
+// Row adds one data row.
 func (t *Table) Row(cells ...any) {
 	parts := make([]string, len(cells))
 	for i, c := range cells {
 		parts[i] = fmt.Sprint(c)
 	}
-	fmt.Fprintln(t.tw, strings.Join(parts, "\t"))
+	t.addRow(parts)
 }
 
-// Flush flushes the tabwriter; call before writing further unaligned output.
-func (t *Table) Flush() error { return t.tw.Flush() }
+// Flush writes all buffered rows with aligned columns.
+func (t *Table) Flush() error {
+	for _, row := range t.rows {
+		var sb strings.Builder
+		for i, cell := range row {
+			sb.WriteString(cell)
+			if i < len(row)-1 {
+				pad := t.widths[i] - visibleWidth(cell) + t.padding
+				sb.WriteString(strings.Repeat(" ", pad))
+			}
+		}
+		fmt.Fprintln(t.w, sb.String())
+	}
+	return nil
+}
 
 // RelTime renders "N{s,m,h,d} ago" for a duration in seconds.
 func RelTime(seconds int64) string {
