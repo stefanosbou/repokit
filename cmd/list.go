@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
+	"github.com/stefanosbou/repokit/internal/output"
 	"github.com/stefanosbou/repokit/internal/registry"
 )
 
@@ -19,12 +21,11 @@ var listCmd = &cobra.Command{
 			fmt.Println("No repos registered.")
 			return nil
 		}
-		// tw := output.NewTable(os.Stdout, []string{"NAME", "PATH", "GROUPS"})
+		tw := output.NewTable(os.Stdout, []string{"NAME", "PATH"})
 		for _, r := range repos {
-			// tw.Row(r.Name, r.Path, strings.Join(r.Groups, ", "))
-			fmt.Printf("%s\t%s\n", r.Name, r.Path)
+			tw.Row(r.Name, r.Path)
 		}
-		// _ = tw.Flush()
+		_ = tw.Flush()
 		fmt.Printf("\n%d repos registered.\n", len(repos))
 		return nil
 	},
