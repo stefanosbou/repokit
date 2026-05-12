@@ -8,6 +8,15 @@ import (
 	"time"
 )
 
+// ListBranches returns local branches with last-commit timestamps.
+func ListBranches(ctx context.Context, repoPath string) ([]Branch, error) {
+	out, err := Run(ctx, repoPath, "for-each-ref", "--format=%(refname:short)|%(committerdate:unix)|%(HEAD)", "refs/heads")
+	if err != nil {
+		return nil, err
+	}
+	return parseBranches(out), nil
+}
+
 // MergedBranches returns branches whose tip is reachable from base, excluding base itself.
 func MergedBranches(ctx context.Context, repoPath, base string) ([]Branch, error) {
 	out, err := Run(ctx, repoPath, "for-each-ref", "--merged="+base,

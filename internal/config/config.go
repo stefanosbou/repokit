@@ -36,6 +36,14 @@ func Default() *Config {
 	return &Config{
 		Version: "1",
 		Repos:   []RepoEntry{},
+		Settings: Settings{
+			Parallel:     0,
+			PullStrategy: "ff-only",
+			Clean: CleanSettings{
+				StaleAfterDays:    30,
+				ProtectedBranches: []string{"main", "master", "develop", "staging"},
+			},
+		},
 	}
 }
 
