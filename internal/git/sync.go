@@ -6,6 +6,12 @@ import (
 	"strings"
 )
 
+// Fetch runs `git fetch --prune` in repoPath.
+func Fetch(ctx context.Context, repoPath string) error {
+	_, err := Run(ctx, repoPath, "fetch", "--prune")
+	return err
+}
+
 // Pull runs `git pull` with the requested strategy: "ff-only", "rebase", or "merge".
 func Pull(ctx context.Context, repoPath, strategy string) (*PullResult, error) {
 	args := []string{"pull"}
