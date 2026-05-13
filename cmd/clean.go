@@ -52,15 +52,10 @@ var cleanBranchesCmd = &cobra.Command{
 		}
 
 		ctx := cmd.Context()
-		if ctx == nil {
-			ctx = context.Background()
-		}
 
 		fmt.Printf("Scanning %d repos for merged branches...\n\n", len(repos))
 
 		plans := make([]repoPlan, 0, len(repos))
-		var scanErrors []runner.Result
-
 		tasks := make([]runner.Task, 0, len(repos))
 		for _, r := range repos {
 			tasks = append(tasks, runner.Task{
@@ -87,7 +82,6 @@ var cleanBranchesCmd = &cobra.Command{
 		for r := range runner.RunAll(ctx, tasks, globals.Parallel) {
 			if r.Err != nil {
 				fmt.Fprintf(os.Stderr, "  ✗ %s: %s\n", r.RepoName, r.Err)
-				scanErrors = append(scanErrors, r)
 				continue
 			}
 			bs, _ := r.Data.([]git.Branch)
@@ -107,7 +101,7 @@ var cleanBranchesCmd = &cobra.Command{
 		for _, p := range plans {
 			fmt.Printf("  %s\n", p.repo.Name)
 			for _, b := range p.branches {
-				ago := output.RelTime(int64(time.Since(b.LastCommitTime).Seconds()))
+				ago := output.RelTime(time.Since(b.LastCommitTime))
 				fmt.Printf("    - %-30s merged %s\n", b.Name, ago)
 			}
 			fmt.Println()
@@ -143,20 +137,12 @@ var cleanBranchesCmd = &cobra.Command{
 			}
 		}
 		var deleted, errs int
-		var deletedResults, errorResults []runner.Result
 		for r := range runner.RunAll(ctx, deleteTasks, globals.Parallel) {
-			switch {
-			case r.Err != nil:
-				fmt.Printf("  %s  %-15s %-20s %s\n", color.RedString("✗"), r.RepoName, r.Message, r.Err.Error())
-			default:
-				fmt.Printf("  %s  %-15s %-20s deleted\n", color.GreenString("✓"), r.RepoName, r.Message)
-			}
-
 			if r.Err != nil {
-				errorResults = append(errorResults, r)
+				fmt.Printf("  %s  %-15s %-20s %s\n", color.RedString("✗"), r.RepoName, r.Message, r.Err.Error())
 				errs++
 			} else {
-				deletedResults = append(deletedResults, r)
+				fmt.Printf("  %s  %-15s %-20s deleted\n", color.GreenString("✓"), r.RepoName, r.Message)
 				deleted++
 			}
 		}
@@ -195,65 +181,6 @@ func filterDeletable(bs []git.Branch, configProtected []string, olderThanDays in
 			continue
 		}
 		out = append(out, b)
-	}
-	return out
-}
-
-func scanErrorsToJSON(rs []runner.Result) []map[string]any {
-	out := make([]map[string]any, 0, len(rs))
-	for _, r := range rs {
-		row := map[string]any{
-			"repo": r.RepoName,
-		}
-		if r.Err != nil {
-			row["error"] = r.Err.Error()
-		}
-		out = append(out, row)
-	}
-	return out
-}
-
-func deletionResultsToJSON(rs []runner.Result) []map[string]any {
-	out := make([]map[string]any, 0, len(rs))
-	for _, r := range rs {
-		out = append(out, map[string]any{
-			"repo":   r.RepoName,
-			"branch": r.Message,
-		})
-	}
-	return out
-}
-
-func deletionErrorsToJSON(rs []runner.Result) []map[string]any {
-	out := make([]map[string]any, 0, len(rs))
-	for _, r := range rs {
-		row := map[string]any{
-			"repo":   r.RepoName,
-			"branch": r.Message,
-		}
-		if r.Err != nil {
-			row["error"] = r.Err.Error()
-		}
-		out = append(out, row)
-	}
-	return out
-}
-
-func plansToJSON(plans []repoPlan) []map[string]any {
-	out := make([]map[string]any, 0, len(plans))
-	for _, p := range plans {
-		bs := make([]map[string]any, 0, len(p.branches))
-		for _, b := range p.branches {
-			bs = append(bs, map[string]any{
-				"name":             b.Name,
-				"last_commit_unix": b.LastCommitTime.Unix(),
-			})
-		}
-		out = append(out, map[string]any{
-			"repo":     p.repo.Name,
-			"path":     p.repo.Path,
-			"branches": bs,
-		})
 	}
 	return out
 }

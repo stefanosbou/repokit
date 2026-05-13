@@ -5,6 +5,7 @@ import (
 	"io"
 	"regexp"
 	"strings"
+	"time"
 )
 
 var ansiRE = regexp.MustCompile(`\x1b\[[0-9;]*m`)
@@ -67,16 +68,17 @@ func (t *Table) Flush() error {
 	return nil
 }
 
-// RelTime renders "N{s,m,h,d} ago" for a duration in seconds.
-func RelTime(seconds int64) string {
-	if seconds < 60 {
-		return fmt.Sprintf("%ds ago", seconds)
+// RelTime renders "N{s,m,h,d} ago" for a duration.
+func RelTime(d time.Duration) string {
+	s := int64(d.Seconds())
+	if s < 60 {
+		return fmt.Sprintf("%ds ago", s)
 	}
-	if seconds < 3600 {
-		return fmt.Sprintf("%dm ago", seconds/60)
+	if s < 3600 {
+		return fmt.Sprintf("%dm ago", s/60)
 	}
-	if seconds < 86400 {
-		return fmt.Sprintf("%dh ago", seconds/3600)
+	if s < 86400 {
+		return fmt.Sprintf("%dh ago", s/3600)
 	}
-	return fmt.Sprintf("%dd ago", seconds/86400)
+	return fmt.Sprintf("%dd ago", s/86400)
 }

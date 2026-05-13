@@ -29,9 +29,6 @@ var fetchCmd = &cobra.Command{
 		}
 
 		ctx := cmd.Context()
-		if ctx == nil {
-			ctx = context.Background()
-		}
 
 		tasks := make([]runner.Task, 0, len(repos))
 		for _, r := range repos {

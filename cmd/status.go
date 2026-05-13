@@ -19,19 +19,6 @@ import (
 
 var statusFilter string
 
-type repoStatusJSON struct {
-	Name           string `json:"name"`
-	Path           string `json:"path"`
-	Branch         string `json:"branch"`
-	State          string `json:"state"`
-	DirtyFiles     int    `json:"dirty_files"`
-	Ahead          int    `json:"ahead"`
-	Behind         int    `json:"behind"`
-	LastCommitUnix int64  `json:"last_commit_unix"`
-	Detached       bool   `json:"detached"`
-	Error          string `json:"error,omitempty"`
-}
-
 var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show fleet health dashboard",
@@ -46,9 +33,6 @@ var statusCmd = &cobra.Command{
 			repos = []config.RepoEntry{r}
 		}
 		ctx := cmd.Context()
-		if ctx == nil {
-			ctx = context.Background()
-		}
 
 		tasks := make([]runner.Task, 0, len(repos))
 		for _, r := range repos {
@@ -122,7 +106,7 @@ func renderStatusTable(results []runner.Result, staleAfterDays int) error {
 		if st != nil {
 			branch = st.Branch
 			statusCell = formatStatusCell(state, st)
-			last = output.RelTime(int64(time.Since(st.LastCommit).Seconds()))
+			last = output.RelTime(time.Since(st.LastCommit))
 		}
 		if r.Err != nil {
 			statusCell = color.RedString("✗ error: %s", truncate(r.Err.Error(), 40))

@@ -71,7 +71,7 @@ func Load(path string) (*Config, error) {
 	return cfg, nil
 }
 
-// Save writes the config to disk, creating parent directories as needed.
+// Save writes the config to disk atomically, creating parent directories as needed.
 func Save(path string, cfg *Config) error {
 	if path == "" {
 		p, err := ConfigPath()
@@ -87,8 +87,13 @@ func Save(path string, cfg *Config) error {
 	if err != nil {
 		return fmt.Errorf("marshal config: %w", err)
 	}
-	if err := os.WriteFile(path, data, 0o600); err != nil {
-		return fmt.Errorf("write config %s: %w", path, err)
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+		return fmt.Errorf("write config %s: %w", tmp, err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("rename config %s: %w", path, err)
 	}
 	return nil
 }

@@ -35,6 +35,9 @@ var rootCmd = &cobra.Command{
 			return err
 		}
 		globals.Cfg = cfg
+		if !cmd.Root().PersistentFlags().Changed("parallel") && cfg.Settings.Parallel > 0 {
+			globals.Parallel = cfg.Settings.Parallel
+		}
 		// First-run init: persist the default config so users have something to edit.
 		if globals.ConfigPath == "" {
 			path, _ := config.ConfigPath()

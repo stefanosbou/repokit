@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestTable_AlignsColumns(t *testing.T) {
@@ -23,17 +24,17 @@ func TestTable_AlignsColumns(t *testing.T) {
 
 func TestRelTime(t *testing.T) {
 	cases := []struct {
-		secs int64
+		d    time.Duration
 		want string
 	}{
-		{30, "30s ago"},
-		{120, "2m ago"},
-		{3600, "1h ago"},
-		{86400, "1d ago"},
+		{30 * time.Second, "30s ago"},
+		{120 * time.Second, "2m ago"},
+		{3600 * time.Second, "1h ago"},
+		{86400 * time.Second, "1d ago"},
 	}
 	for _, c := range cases {
-		if got := RelTime(c.secs); got != c.want {
-			t.Errorf("RelTime(%d) = %q, want %q", c.secs, got, c.want)
+		if got := RelTime(c.d); got != c.want {
+			t.Errorf("RelTime(%v) = %q, want %q", c.d, got, c.want)
 		}
 	}
 }

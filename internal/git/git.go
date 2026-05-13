@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -41,11 +42,12 @@ type PullResult struct {
 func Run(ctx context.Context, repoPath string, args ...string) (string, error) {
 	full := append([]string{"-C", repoPath}, args...)
 	cmd := exec.CommandContext(ctx, "git", full...)
+	cmd.Env = append(os.Environ(), "LC_ALL=C", "GIT_TERMINAL_PROMPT=0")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		return stdout.String(), fmt.Errorf("git %v: %w: %s", args, err, strings.TrimSpace(stderr.String()))
+		return stdout.String(), fmt.Errorf("git %s (%s): %w", strings.Join(args, " "), strings.TrimSpace(stderr.String()), err)
 	}
 	return stdout.String(), nil
 }

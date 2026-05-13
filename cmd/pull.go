@@ -49,9 +49,6 @@ var pullCmd = &cobra.Command{
 		}
 
 		ctx := cmd.Context()
-		if ctx == nil {
-			ctx = context.Background()
-		}
 
 		if pullFilter == "behind" {
 			repos = filterRepos(ctx, repos, "behind", globals.Cfg.Settings.Clean.StaleAfterDays, globals.Parallel)
@@ -164,23 +161,6 @@ func filterRepos(ctx context.Context, repos []config.RepoEntry, want string, sta
 		if deriveState(r, staleAfter) == want {
 			out = append(out, byName[r.RepoName])
 		}
-	}
-	return out
-}
-
-func resultsToJSON(rs []runner.Result) []map[string]any {
-	out := make([]map[string]any, 0, len(rs))
-	for _, r := range rs {
-		row := map[string]any{
-			"repo":    r.RepoName,
-			"path":    r.RepoPath,
-			"status":  r.Status,
-			"message": r.Message,
-		}
-		if r.Err != nil {
-			row["error"] = r.Err.Error()
-		}
-		out = append(out, row)
 	}
 	return out
 }
