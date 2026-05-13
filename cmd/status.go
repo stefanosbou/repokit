@@ -24,30 +24,19 @@ var statusCmd = &cobra.Command{
 	Short: "Show fleet health dashboard",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		reg := registry.New(globals.Cfg)
-		repos := reg.All()
-		if globals.Repo != "" {
-			r, ok := reg.ByName(globals.Repo)
-			if !ok {
-				return fmt.Errorf("unknown repo: %s", globals.Repo)
-			}
-			repos = []config.RepoEntry{r}
+		repos, err := selectRepos(reg, globals.Repo)
+		if err != nil {
+			return err
 		}
 		ctx := cmd.Context()
 
-		tasks := make([]runner.Task, 0, len(repos))
-		for _, r := range repos {
-			tasks = append(tasks, runner.Task{
-				RepoName: r.Name,
-				RepoPath: r.Path,
-				Run: func(ctx context.Context) runner.Result {
-					st, err := git.Status(ctx, r.Path)
-					if err != nil {
-						return runner.Result{Status: runner.StatusError, Err: err}
-					}
-					return runner.Result{Status: runner.StatusOK, Data: st}
-				},
-			})
-		}
+		tasks := buildTasks(repos, func(ctx context.Context, r config.RepoEntry) runner.Result {
+			st, err := git.Status(ctx, r.Path)
+			if err != nil {
+				return runner.Result{Status: runner.StatusError, Err: err}
+			}
+			return runner.Result{Status: runner.StatusOK, Data: st}
+		})
 
 		results := runner.RunAll(ctx, tasks, globals.Parallel)
 		var collected []runner.Result

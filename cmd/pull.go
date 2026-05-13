@@ -39,13 +39,9 @@ var pullCmd = &cobra.Command{
 		}
 
 		reg := registry.New(globals.Cfg)
-		repos := reg.All()
-		if globals.Repo != "" {
-			r, ok := reg.ByName(globals.Repo)
-			if !ok {
-				return fmt.Errorf("unknown repo: %s", globals.Repo)
-			}
-			repos = []config.RepoEntry{r}
+		repos, err := selectRepos(reg, globals.Repo)
+		if err != nil {
+			return err
 		}
 
 		ctx := cmd.Context()
@@ -54,35 +50,28 @@ var pullCmd = &cobra.Command{
 			repos = filterRepos(ctx, repos, "behind", globals.Cfg.Settings.Clean.StaleAfterDays, globals.Parallel)
 		}
 
-		tasks := make([]runner.Task, 0, len(repos))
-		for _, r := range repos {
-			tasks = append(tasks, runner.Task{
-				RepoName: r.Name,
-				RepoPath: r.Path,
-				Run: func(ctx context.Context) runner.Result {
-					st, err := git.Status(ctx, r.Path)
-					if err != nil {
-						return runner.Result{Status: runner.StatusError, Err: err}
-					}
-					if st.DirtyFiles > 0 && !pullForce {
-						return runner.Result{Status: runner.StatusSkipped, Message: "uncommitted changes"}
-					}
-					res, err := git.Pull(ctx, r.Path, strategy)
-					if err != nil {
-						return runner.Result{Status: runner.StatusError, Err: err}
-					}
-					switch {
-					case res.Conflict:
-						return runner.Result{Status: runner.StatusError, Message: "Merge conflict", Err: errPullConflict}
-					case res.UpToDate:
-						return runner.Result{Status: runner.StatusOK, Message: "Already up to date"}
-					case res.Updated:
-						return runner.Result{Status: runner.StatusOK, Message: "Updated"}
-					}
-					return runner.Result{Status: runner.StatusOK, Message: res.Message}
-				},
-			})
-		}
+		tasks := buildTasks(repos, func(ctx context.Context, r config.RepoEntry) runner.Result {
+			st, err := git.Status(ctx, r.Path)
+			if err != nil {
+				return runner.Result{Status: runner.StatusError, Err: err}
+			}
+			if st.DirtyFiles > 0 && !pullForce {
+				return runner.Result{Status: runner.StatusSkipped, Message: "uncommitted changes"}
+			}
+			res, err := git.Pull(ctx, r.Path, strategy)
+			if err != nil {
+				return runner.Result{Status: runner.StatusError, Err: err}
+			}
+			switch {
+			case res.Conflict:
+				return runner.Result{Status: runner.StatusError, Message: "Merge conflict", Err: errPullConflict}
+			case res.UpToDate:
+				return runner.Result{Status: runner.StatusOK, Message: "Already up to date"}
+			case res.Updated:
+				return runner.Result{Status: runner.StatusOK, Message: "Updated"}
+			}
+			return runner.Result{Status: runner.StatusOK, Message: res.Message}
+		})
 
 		collected, err := tui.RunWithProgress(
 			ctx,

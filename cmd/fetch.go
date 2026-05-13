@@ -19,30 +19,19 @@ var fetchCmd = &cobra.Command{
 	Short: "Fetch updates across registered repos in parallel",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		reg := registry.New(globals.Cfg)
-		repos := reg.All()
-		if globals.Repo != "" {
-			r, ok := reg.ByName(globals.Repo)
-			if !ok {
-				return fmt.Errorf("unknown repo: %s", globals.Repo)
-			}
-			repos = []config.RepoEntry{r}
+		repos, err := selectRepos(reg, globals.Repo)
+		if err != nil {
+			return err
 		}
 
 		ctx := cmd.Context()
 
-		tasks := make([]runner.Task, 0, len(repos))
-		for _, r := range repos {
-			tasks = append(tasks, runner.Task{
-				RepoName: r.Name,
-				RepoPath: r.Path,
-				Run: func(ctx context.Context) runner.Result {
-					if err := git.Fetch(ctx, r.Path); err != nil {
-						return runner.Result{Status: runner.StatusError, Err: err}
-					}
-					return runner.Result{Status: runner.StatusOK, Message: "Fetched"}
-				},
-			})
-		}
+		tasks := buildTasks(repos, func(ctx context.Context, r config.RepoEntry) runner.Result {
+			if err := git.Fetch(ctx, r.Path); err != nil {
+				return runner.Result{Status: runner.StatusError, Err: err}
+			}
+			return runner.Result{Status: runner.StatusOK, Message: "Fetched"}
+		})
 
 		printFetch := func(r runner.Result) {
 			switch {

@@ -42,13 +42,9 @@ var cleanBranchesCmd = &cobra.Command{
 	Short: "Delete merged local branches across all repos",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		reg := registry.New(globals.Cfg)
-		repos := reg.All()
-		if globals.Repo != "" {
-			r, ok := reg.ByName(globals.Repo)
-			if !ok {
-				return fmt.Errorf("unknown repo: %s", globals.Repo)
-			}
-			repos = []config.RepoEntry{r}
+		repos, err := selectRepos(reg, globals.Repo)
+		if err != nil {
+			return err
 		}
 
 		ctx := cmd.Context()

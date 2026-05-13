@@ -28,16 +28,31 @@ func Pull(ctx context.Context, repoPath, strategy string) (*PullResult, error) {
 	out, err := Run(ctx, repoPath, args...)
 	res := &PullResult{Message: strings.TrimSpace(out)}
 	if err != nil {
-		if strings.Contains(err.Error(), "CONFLICT") || strings.Contains(out, "CONFLICT") {
+		if hasUnmergedEntries(ctx, repoPath) {
 			res.Conflict = true
 			return res, nil
 		}
 		return res, err
 	}
-	if strings.Contains(out, "Already up to date") || strings.Contains(out, "Already up-to-date") {
+	// LC_ALL=C guarantees "Already up to date." (no hyphen variant).
+	if strings.Contains(out, "Already up to date") {
 		res.UpToDate = true
 		return res, nil
 	}
 	res.Updated = true
 	return res, nil
+}
+
+// hasUnmergedEntries reports whether the repo has unmerged files after a failed pull.
+func hasUnmergedEntries(ctx context.Context, repoPath string) bool {
+	out, err := Run(ctx, repoPath, "status", "--porcelain=v2")
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(out, "\n") {
+		if strings.HasPrefix(line, "u ") {
+			return true
+		}
+	}
+	return false
 }

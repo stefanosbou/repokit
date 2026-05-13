@@ -67,3 +67,35 @@ func TestPull_AlreadyUpToDate(t *testing.T) {
 		t.Errorf("expected UpToDate=true, got %+v", res)
 	}
 }
+
+func TestPull_MergeConflict(t *testing.T) {
+	upstream := initRepo(t)
+	writeFile(t, upstream, "f.txt", "base\n")
+	gitInRepo(t, upstream, "add", "f.txt")
+	gitInRepo(t, upstream, "commit", "-q", "-m", "add f")
+	gitInRepo(t, upstream, "config", "receive.denyCurrentBranch", "ignore")
+
+	clone := t.TempDir()
+	clone, _ = filepath.EvalSymlinks(clone)
+	if out, err := exec.Command("git", "clone", "-q", upstream, clone).CombinedOutput(); err != nil {
+		t.Fatalf("git clone: %v\n%s", err, out)
+	}
+	gitInRepo(t, clone, "config", "user.email", "test@example.com")
+	gitInRepo(t, clone, "config", "user.name", "test")
+
+	writeFile(t, upstream, "f.txt", "upstream-change\n")
+	gitInRepo(t, upstream, "add", "f.txt")
+	gitInRepo(t, upstream, "commit", "-q", "-m", "upstream change")
+
+	writeFile(t, clone, "f.txt", "clone-change\n")
+	gitInRepo(t, clone, "add", "f.txt")
+	gitInRepo(t, clone, "commit", "-q", "-m", "clone change")
+
+	res, err := Pull(context.Background(), clone, "merge")
+	if err != nil {
+		t.Fatalf("Pull returned error instead of conflict result: %v", err)
+	}
+	if !res.Conflict {
+		t.Errorf("expected Conflict=true, got %+v", res)
+	}
+}
