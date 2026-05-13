@@ -14,7 +14,6 @@ Or build from source:
 go build -o repokit .
 ```
 
-
 ## Config
 
 Default location: `~/.config/repokit/config.yaml`
