@@ -12,6 +12,7 @@ import (
 	"github.com/stefanosbou/repokit/internal/git"
 	"github.com/stefanosbou/repokit/internal/registry"
 	"github.com/stefanosbou/repokit/internal/runner"
+	"github.com/stefanosbou/repokit/internal/tui"
 )
 
 var pullStrategy string
@@ -56,8 +57,6 @@ var pullCmd = &cobra.Command{
 			repos = filterRepos(ctx, repos, "behind", globals.Cfg.Settings.Clean.StaleAfterDays, globals.Parallel)
 		}
 
-		fmt.Printf("Pulling %d repos...\n\n", len(repos))
-
 		tasks := make([]runner.Task, 0, len(repos))
 		for _, r := range repos {
 			tasks = append(tasks, runner.Task{
@@ -88,12 +87,19 @@ var pullCmd = &cobra.Command{
 			})
 		}
 
-		results := runner.RunAll(ctx, tasks, globals.Parallel)
+		collected, err := tui.RunWithProgress(
+			ctx,
+			fmt.Sprintf("Pulling %d repos...", len(repos)),
+			tasks,
+			globals.Parallel,
+			printPullLine,
+		)
+		if err != nil {
+			return err
+		}
 
 		var updated, skipped, conflicts, errs int
-		for r := range results {
-			printPullLine(r)
-
+		for _, r := range collected {
 			switch {
 			case errors.Is(r.Err, errPullConflict):
 				conflicts++

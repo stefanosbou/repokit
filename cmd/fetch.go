@@ -11,6 +11,7 @@ import (
 	"github.com/stefanosbou/repokit/internal/git"
 	"github.com/stefanosbou/repokit/internal/registry"
 	"github.com/stefanosbou/repokit/internal/runner"
+	"github.com/stefanosbou/repokit/internal/tui"
 )
 
 var fetchCmd = &cobra.Command{
@@ -32,8 +33,6 @@ var fetchCmd = &cobra.Command{
 			ctx = context.Background()
 		}
 
-		fmt.Printf("Fetching %d repos...\n\n", len(repos))
-
 		tasks := make([]runner.Task, 0, len(repos))
 		for _, r := range repos {
 			tasks = append(tasks, runner.Task{
@@ -48,16 +47,28 @@ var fetchCmd = &cobra.Command{
 			})
 		}
 
-		var ok, errs int
-		var collected []runner.Result
-		for r := range runner.RunAll(ctx, tasks, globals.Parallel) {
+		printFetch := func(r runner.Result) {
 			switch {
 			case r.Err != nil:
 				fmt.Printf("  %s  %-20s %s\n", color.RedString("✗"), r.RepoName, r.Err.Error())
 			default:
 				fmt.Printf("  %s  %-20s %s\n", color.GreenString("✓"), r.RepoName, r.Message)
 			}
-			collected = append(collected, r)
+		}
+
+		collected, err := tui.RunWithProgress(
+			ctx,
+			fmt.Sprintf("Fetching %d repos...", len(repos)),
+			tasks,
+			globals.Parallel,
+			printFetch,
+		)
+		if err != nil {
+			return err
+		}
+
+		var ok, errs int
+		for _, r := range collected {
 			if r.Err != nil {
 				errs++
 			} else {
